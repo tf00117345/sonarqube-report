@@ -1,0 +1,45 @@
+:root {
+  /* Header / branding */
+  --color-header-title: #1B2A4A;
+  --color-gold-line: #C8A951;
+  --color-header-bg: #1565C0;
+
+  /* Neutrals */
+  --color-light-gray: #F5F5F5;
+  --color-medium-gray: #E0E0E0;
+  --color-border: #E0E0E0;
+  --color-text-primary: #212121;
+  --color-text-secondary: #757575;
+
+  /* Status */
+  --color-pass: #4CAF50;
+  --color-fail: #F44336;
+  --color-total-nonzero-bg: #FCE4EC;
+
+  /* Ratings */
+  --rating-a: #4CAF50;
+  --rating-b: #8BC34A;
+  --rating-c: #FF9800;
+  --rating-d: #FF5722;
+  --rating-e: #D32F2F;
+
+  /* Severity */
+  --sev-blocker: #D32F2F;
+  --sev-critical: #F44336;
+  --sev-major: #FF9800;
+  --sev-minor: #4CAF50;
+  --sev-info: #2196F3;
+
+  /* Coverage */
+  --cov-red: #F44336;
+  --cov-orange: #FF9800;
+  --cov-green: #4CAF50;
+
+  /* Duplication */
+  --dup-orange: #FF9800;
+
+  /* A4 page dimensions */
+  --page-width: 210mm;
+  --page-height: 297mm;
+  --page-margin: 15mm;
+}

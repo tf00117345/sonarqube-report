@@ -1,0 +1,24 @@
+@import './variables.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Microsoft JhengHei', 'Noto Sans TC', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--color-text-primary);
+  background: #FAFAFA;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+}
+
+a {
+  color: var(--color-header-bg);
+  text-decoration: none;
+}
