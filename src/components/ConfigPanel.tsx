@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import type { ReportConfig } from '../types/models';
+import type { ReportConfig, Severity } from '../types/models';
+import { SEVERITY_COLORS, SEVERITY_ORDER } from '../utils/constants';
+
+const ALL_SEVERITIES = new Set<Severity>(SEVERITY_ORDER as unknown as Severity[]);
 
 interface Props {
   onGenerate: (config: ReportConfig) => void;
@@ -24,10 +27,31 @@ const PRESETS: Record<string, ReportConfig> = {
 export default function ConfigPanel({ onGenerate, loading }: Props) {
   const [profile, setProfile] = useState<'local' | 'cloud' | 'custom'>('local');
   const [config, setConfig] = useState<ReportConfig>(PRESETS.local);
+  const [severities, setSeverities] = useState<Set<Severity>>(new Set(ALL_SEVERITIES));
 
   const handleProfileChange = (p: 'local' | 'cloud' | 'custom') => {
     setProfile(p);
     if (p !== 'custom') setConfig(PRESETS[p]);
+  };
+
+  const toggleSeverity = (sev: Severity) => {
+    setSeverities((prev) => {
+      const next = new Set(prev);
+      if (next.has(sev)) {
+        if (next.size > 1) next.delete(sev);
+      } else {
+        next.add(sev);
+      }
+      return next;
+    });
+  };
+
+  const handleGenerate = () => {
+    const allSelected = severities.size === ALL_SEVERITIES.size;
+    onGenerate({
+      ...config,
+      severities: allSelected ? undefined : [...severities],
+    });
   };
 
   const update = (field: keyof ReportConfig, value: string) => {
@@ -80,8 +104,36 @@ export default function ConfigPanel({ onGenerate, loading }: Props) {
         )}
       </div>
 
+      <div style={{ marginTop: 16 }}>
+        <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>Severity Filter</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(SEVERITY_ORDER as unknown as Severity[]).map((sev) => {
+            const selected = severities.has(sev);
+            return (
+              <button
+                key={sev}
+                onClick={() => toggleSeverity(sev)}
+                style={{
+                  padding: '6px 14px',
+                  background: selected ? SEVERITY_COLORS[sev] : '#E0E0E0',
+                  color: selected ? 'white' : '#212121',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '9pt',
+                  opacity: selected ? 1 : 0.6,
+                }}
+              >
+                {sev.charAt(0) + sev.slice(1).toLowerCase()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <button
-        onClick={() => onGenerate(config)}
+        onClick={handleGenerate}
         disabled={loading || !config.url || !config.projectKey || !config.token}
         style={{
           marginTop: 16,

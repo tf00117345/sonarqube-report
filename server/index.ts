@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/api/report', async (req, res) => {
-  const { url, token, projectKey, organization, password } = req.body;
+  const { url, token, projectKey, organization, password, severities } = req.body;
 
   if (!url || !token || !projectKey) {
     res.status(400).json({ error: 'url, token, and projectKey are required' });
@@ -23,6 +23,7 @@ app.post('/api/report', async (req, res) => {
       projectKey,
       organization: organization || undefined,
       password: password || undefined,
+      severities: Array.isArray(severities) ? severities : undefined,
     });
 
     const data = await client.collectReportData();

@@ -10,6 +10,7 @@ export async function fetchReportData(config: ReportConfig): Promise<ReportData>
       projectKey: config.projectKey,
       organization: config.organization || undefined,
       password: config.password || undefined,
+      severities: config.severities || undefined,
     }),
   });
 

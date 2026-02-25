@@ -177,4 +177,5 @@ export interface ReportConfig {
   projectKey: string;
   organization?: string;
   password?: string;
+  severities?: Severity[];
 }

@@ -230,6 +230,7 @@ export class SonarQubeClient {
   private token: string;
   private projectKey: string;
   private organization: string | undefined;
+  private severities: string | undefined;
   private isCloud: boolean;
   private http: AxiosInstance;
 
@@ -239,11 +240,13 @@ export class SonarQubeClient {
     projectKey: string;
     organization?: string;
     password?: string;
+    severities?: string[];
   }) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.token = config.token;
     this.projectKey = config.projectKey;
     this.organization = config.organization;
+    this.severities = config.severities?.length ? config.severities.join(',') : undefined;
     this.isCloud = !!config.organization;
 
     const headers: Record<string, string> = { Accept: 'application/json' };
@@ -453,6 +456,7 @@ export class SonarQubeClient {
         ps: 1,
         facets: 'severities',
         statuses: 'OPEN,CONFIRMED,REOPENED',
+        ...(this.severities ? { severities: this.severities } : {}),
       }),
     );
 
@@ -463,12 +467,18 @@ export class SonarQubeClient {
       }
     }
 
+    // SonarQube facets are disjunctive: when the facet field matches a query
+    // filter, counts are returned as if that filter was NOT applied. Zero out
+    // any severity the caller explicitly excluded.
+    const allowed = this.severities ? new Set(this.severities.split(',')) : null;
+    const sev = (key: string) => (allowed && !allowed.has(key)) ? 0 : (facetMap[key] ?? 0);
+
     return {
-      blocker: facetMap['BLOCKER'] ?? 0,
-      critical: facetMap['CRITICAL'] ?? 0,
-      major: facetMap['MAJOR'] ?? 0,
-      minor: facetMap['MINOR'] ?? 0,
-      info: facetMap['INFO'] ?? 0,
+      blocker: sev('BLOCKER'),
+      critical: sev('CRITICAL'),
+      major: sev('MAJOR'),
+      minor: sev('MINOR'),
+      info: sev('INFO'),
     };
   }
 
@@ -490,6 +500,7 @@ export class SonarQubeClient {
           ps: 1,
           facets: 'severities',
           statuses: 'OPEN,CONFIRMED,REOPENED',
+          ...(this.severities ? { severities: this.severities } : {}),
         }),
       );
 
@@ -502,7 +513,11 @@ export class SonarQubeClient {
       counts[issueType] = sevMap;
     }
 
-    const c = (type: string, sev: string) => counts[type]?.[sev] ?? 0;
+    // Zero out excluded severities (SonarQube disjunctive facets ignore the
+    // severities filter when computing facet counts).
+    const allowed = this.severities ? new Set(this.severities.split(',')) : null;
+    const c = (type: string, sev: string) =>
+      (allowed && !allowed.has(sev)) ? 0 : (counts[type]?.[sev] ?? 0);
 
     return {
       blocker_bug: c('BUG', 'BLOCKER'),
@@ -544,6 +559,7 @@ export class SonarQubeClient {
           s: 'SEVERITY',
           asc: 'false',
           statuses: 'OPEN,CONFIRMED,REOPENED',
+          ...(this.severities ? { severities: this.severities } : {}),
         }),
       );
 
