@@ -47,6 +47,8 @@ interface ProjectMetrics {
   classes: number;
   files: number;
   comment_lines_density: number;
+  lines_to_cover: number;
+  uncovered_lines: number;
   new_bugs: number;
   new_vulnerabilities: number;
   new_code_smells: number;
@@ -72,6 +74,17 @@ interface Issue {
   tags: string[];
   creation_date: string | null;
   status: string;
+}
+
+interface SecurityHotspot {
+  key: string;
+  message: string;
+  component: string;
+  line: number | null;
+  rule: string;
+  severity: string;
+  status: string;
+  resolution: string | null;
 }
 
 interface SeverityDistribution {
@@ -118,12 +131,21 @@ interface TrendPoint {
   value: number;
 }
 
+interface DualTrendPoint {
+  date: string;
+  value1: number;
+  value2: number;
+}
+
 interface MetricTrends {
   bugs: TrendPoint[];
   vulnerabilities: TrendPoint[];
   code_smells: TrendPoint[];
   coverage: TrendPoint[];
   security_hotspots: TrendPoint[];
+  duplicated_lines: DualTrendPoint[];
+  duplicated_lines_density: TrendPoint[];
+  coverage_lines: DualTrendPoint[];
 }
 
 interface ReportData {
@@ -135,6 +157,7 @@ interface ReportData {
   owasp_dist: OWASPDistribution;
   trends: MetricTrends;
   all_issues: Issue[];
+  security_hotspots: SecurityHotspot[];
   generated_at: string;
 }
 
@@ -148,7 +171,7 @@ const OVERALL_METRIC_KEYS = [
   'reliability_rating', 'security_rating', 'sqale_rating', 'security_hotspots',
   'cognitive_complexity', 'complexity', 'duplicated_blocks', 'duplicated_files',
   'duplicated_lines', 'lines', 'statements', 'functions', 'classes', 'files',
-  'comment_lines_density',
+  'comment_lines_density', 'lines_to_cover', 'uncovered_lines',
 ];
 
 const NEW_CODE_METRIC_KEYS = [
@@ -159,6 +182,13 @@ const NEW_CODE_METRIC_KEYS = [
 ];
 
 const ALL_METRIC_KEYS = [...OVERALL_METRIC_KEYS, ...NEW_CODE_METRIC_KEYS].join(',');
+
+// Trend metrics (all 8 chart data sources)
+const TREND_METRICS = [
+  'bugs', 'vulnerabilities', 'code_smells', 'security_hotspots',
+  'duplicated_lines', 'ncloc', 'duplicated_lines_density',
+  'lines_to_cover', 'uncovered_lines', 'coverage',
+].join(',');
 
 // OWASP tag mappings
 const OWASP_TAGS: Record<string, keyof OWASPDistribution> = {
@@ -187,7 +217,6 @@ const OWASP_TAGS_LEGACY: Record<string, keyof OWASPDistribution> = {
   'owasp-a10': 'a10_ssrf',
 };
 
-const SEVERITIES = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'] as const;
 const ISSUE_TYPES = ['BUG', 'VULNERABILITY', 'CODE_SMELL'] as const;
 const API_MAX_TOTAL = 10_000;
 const PAGE_SIZE = 500;
@@ -394,6 +423,8 @@ export class SonarQubeClient {
       classes: toInt(overall, 'classes'),
       files: toInt(overall, 'files'),
       comment_lines_density: toFloat(overall, 'comment_lines_density'),
+      lines_to_cover: toInt(overall, 'lines_to_cover'),
+      uncovered_lines: toInt(overall, 'uncovered_lines'),
       new_bugs: toInt(period, 'new_bugs'),
       new_vulnerabilities: toInt(period, 'new_vulnerabilities'),
       new_code_smells: toInt(period, 'new_code_smells'),
@@ -547,6 +578,58 @@ export class SonarQubeClient {
   }
 
   // ------------------------------------------------------------------
+  // Security hotspots (paginated)
+  // ------------------------------------------------------------------
+
+  async getSecurityHotspots(): Promise<SecurityHotspot[]> {
+    const hotspots: SecurityHotspot[] = [];
+    let page = 1;
+
+    try {
+      while (true) {
+        const data = await this.get<{
+          hotspots: Record<string, unknown>[];
+          paging: { total: number };
+        }>(
+          '/api/hotspots/search',
+          this.orgParams({
+            projectKey: this.projectKey,
+            ps: PAGE_SIZE,
+            p: page,
+          }),
+        );
+
+        const rawHotspots = data.hotspots ?? [];
+        for (const raw of rawHotspots) {
+          hotspots.push({
+            key: (raw.key as string) ?? '',
+            message: (raw.message as string) ?? '',
+            component: ((raw.component as string) ?? '').replace(`${this.projectKey}:`, ''),
+            line: (raw.line as number) ?? null,
+            rule: (raw.securityCategory as string) ?? (raw.ruleKey as string) ?? '',
+            severity: (raw.vulnerabilityProbability as string) ?? 'MEDIUM',
+            status: (raw.status as string) ?? 'TO_REVIEW',
+            resolution: (raw.resolution as string) ?? null,
+          });
+        }
+
+        const total = data.paging?.total ?? 0;
+        const fetchedSoFar = page * PAGE_SIZE;
+
+        if (fetchedSoFar >= total || fetchedSoFar >= API_MAX_TOTAL) break;
+        if (!rawHotspots.length) break;
+
+        page++;
+      }
+    } catch {
+      console.warn('Failed to fetch security hotspots');
+    }
+
+    console.log(`Fetched ${hotspots.length} security hotspots`);
+    return hotspots;
+  }
+
+  // ------------------------------------------------------------------
   // OWASP Top 10 distribution
   // ------------------------------------------------------------------
 
@@ -590,18 +673,19 @@ export class SonarQubeClient {
   }
 
   // ------------------------------------------------------------------
-  // Metric trends (history)
+  // Metric trends (history) - 8 charts worth of data
   // ------------------------------------------------------------------
 
-  async getTrends(
-    metrics = 'bugs,vulnerabilities,code_smells,coverage,security_hotspots',
-  ): Promise<MetricTrends> {
+  async getTrends(): Promise<MetricTrends> {
     const trends: MetricTrends = {
       bugs: [],
       vulnerabilities: [],
       code_smells: [],
       coverage: [],
       security_hotspots: [],
+      duplicated_lines: [],
+      duplicated_lines_density: [],
+      coverage_lines: [],
     };
 
     try {
@@ -614,20 +698,59 @@ export class SonarQubeClient {
         '/api/measures/search_history',
         this.orgParams({
           component: this.projectKey,
-          metrics,
+          metrics: TREND_METRICS,
           ps: 30,
         }),
       );
 
+      const historyByMetric: Record<string, { date: string; value: number }[]> = {};
+
       for (const measure of data.measures ?? []) {
-        const points: TrendPoint[] = (measure.history ?? [])
+        const points = (measure.history ?? [])
           .filter((h) => h.value !== undefined)
           .map((h) => ({ date: h.date, value: parseFloat(h.value!) }));
+        historyByMetric[measure.metric] = points;
+      }
 
-        const key = measure.metric as keyof MetricTrends;
-        if (key in trends) {
-          trends[key] = points;
+      // Simple trends
+      const simpleKeys: (keyof MetricTrends)[] = ['bugs', 'vulnerabilities', 'code_smells', 'security_hotspots', 'coverage'];
+      for (const key of simpleKeys) {
+        const metricKey = key === 'coverage' ? 'coverage' : key;
+        if (historyByMetric[metricKey]) {
+          (trends[key] as TrendPoint[]) = historyByMetric[metricKey].map(p => ({ date: p.date, value: p.value }));
         }
+      }
+
+      // Duplicated lines density
+      if (historyByMetric['duplicated_lines_density']) {
+        trends.duplicated_lines_density = historyByMetric['duplicated_lines_density'].map(p => ({
+          date: p.date,
+          value: p.value,
+        }));
+      }
+
+      // Dual trends: Duplications (ncloc vs duplicated_lines)
+      const nclocHist = historyByMetric['ncloc'] ?? [];
+      const dupLinesHist = historyByMetric['duplicated_lines'] ?? [];
+      if (nclocHist.length && dupLinesHist.length) {
+        const dupMap = new Map(dupLinesHist.map(p => [p.date, p.value]));
+        trends.duplicated_lines = nclocHist
+          .filter(p => dupMap.has(p.date))
+          .map(p => ({ date: p.date, value1: p.value, value2: dupMap.get(p.date)! }));
+      }
+
+      // Dual trends: Coverage (lines_to_cover vs covered_lines)
+      const ltcHist = historyByMetric['lines_to_cover'] ?? [];
+      const uncoveredHist = historyByMetric['uncovered_lines'] ?? [];
+      if (ltcHist.length && uncoveredHist.length) {
+        const uncovMap = new Map(uncoveredHist.map(p => [p.date, p.value]));
+        trends.coverage_lines = ltcHist
+          .filter(p => uncovMap.has(p.date))
+          .map(p => ({
+            date: p.date,
+            value1: p.value,
+            value2: p.value - (uncovMap.get(p.date) ?? 0),
+          }));
       }
     } catch {
       console.warn('Failed to fetch metric trends');
@@ -661,8 +784,10 @@ export class SonarQubeClient {
     const owaspDist = await this.getOwaspDistribution();
     const trends = await this.getTrends();
     const allIssues = await this.getAllIssues();
+    const securityHotspots = await this.getSecurityHotspots();
 
     console.log(`Total issues collected: ${allIssues.length}`);
+    console.log(`Total security hotspots: ${securityHotspots.length}`);
 
     return {
       project,
@@ -673,6 +798,7 @@ export class SonarQubeClient {
       owasp_dist: owaspDist,
       trends,
       all_issues: allIssues,
+      security_hotspots: securityHotspots,
       generated_at: new Date().toISOString(),
     };
   }

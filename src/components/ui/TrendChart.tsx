@@ -30,7 +30,7 @@ export default function TrendChart({ data, color = '#1565C0', label }: Props) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <LineChart data={formatted} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E0E0E0" />
         <XAxis

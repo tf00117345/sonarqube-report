@@ -2,6 +2,7 @@
 
 export type Severity = 'BLOCKER' | 'CRITICAL' | 'MAJOR' | 'MINOR' | 'INFO';
 export type IssueType = 'BUG' | 'VULNERABILITY' | 'CODE_SMELL';
+export type SecurityHotspotType = 'SECURITY_HOTSPOT';
 export type QualityGateStatus = 'OK' | 'ERROR' | 'NONE';
 
 export interface QualityGate {
@@ -33,6 +34,8 @@ export interface ProjectMetrics {
   classes: number;
   files: number;
   comment_lines_density: number;
+  lines_to_cover: number;
+  uncovered_lines: number;
   // New code metrics (leak period)
   new_bugs: number;
   new_vulnerabilities: number;
@@ -59,6 +62,30 @@ export interface Issue {
   tags: string[];
   creation_date: string | null;
   status: string;
+}
+
+export interface SecurityHotspot {
+  key: string;
+  message: string;
+  component: string;
+  line: number | null;
+  rule: string;
+  severity: string;
+  status: string;
+  resolution: string | null;
+}
+
+/** A rule with its aggregated issues, used for per-rule detail pages. */
+export interface RuleGroup {
+  rule: string;
+  ruleName: string;
+  severity: string;
+  type: string;
+  language: string;
+  description: string;
+  tags: string[];
+  issueCount: number;
+  issues: Issue[];
 }
 
 export interface SeverityDistribution {
@@ -105,12 +132,21 @@ export interface TrendPoint {
   value: number;
 }
 
+export interface DualTrendPoint {
+  date: string;
+  value1: number;
+  value2: number;
+}
+
 export interface MetricTrends {
   bugs: TrendPoint[];
   vulnerabilities: TrendPoint[];
   code_smells: TrendPoint[];
   coverage: TrendPoint[];
   security_hotspots: TrendPoint[];
+  duplicated_lines: DualTrendPoint[];
+  duplicated_lines_density: TrendPoint[];
+  coverage_lines: DualTrendPoint[];
 }
 
 export interface ProjectInfo {
@@ -131,6 +167,7 @@ export interface ReportData {
   owasp_dist: OWASPDistribution;
   trends: MetricTrends;
   all_issues: Issue[];
+  security_hotspots: SecurityHotspot[];
   generated_at: string;
 }
 

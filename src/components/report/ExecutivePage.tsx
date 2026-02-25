@@ -1,5 +1,5 @@
 import type { ReportData } from '../../types/models';
-import { fmtNumber, debtToStr, safePct } from '../../utils/formatters';
+import { fmtNumber, safePct } from '../../utils/formatters';
 import ReportHeader from './ReportHeader';
 import ReportFooter from './ReportFooter';
 import ProjectInfoBar from './ProjectInfoBar';
@@ -30,9 +30,9 @@ export default function ExecutivePage({ data, isCloud }: Props) {
           rows={[
             { label: 'Bugs', value: fmtNumber(m.bugs) },
           ]}
+          newCodeLabel="Reliability on new code"
           newCodeRows={[
             { label: 'New Bugs', value: fmtNumber(m.new_bugs) },
-            { label: 'Reliability Rating', value: String(m.new_reliability_rating) },
           ]}
         />
         <MetricCard
@@ -42,10 +42,10 @@ export default function ExecutivePage({ data, isCloud }: Props) {
             { label: 'Vulnerabilities', value: fmtNumber(m.vulnerabilities) },
             { label: 'Security Hotspots', value: fmtNumber(m.security_hotspots) },
           ]}
+          newCodeLabel="Security on new code"
           newCodeRows={[
             { label: 'New Vulnerabilities', value: fmtNumber(m.new_vulnerabilities) },
             { label: 'New Security Hotspots', value: fmtNumber(m.new_security_hotspots) },
-            { label: 'Security Rating', value: String(m.new_security_rating) },
           ]}
         />
         <MetricCard
@@ -53,9 +53,9 @@ export default function ExecutivePage({ data, isCloud }: Props) {
           rating={m.sqale_rating}
           rows={[
             { label: 'Code Smells', value: fmtNumber(m.code_smells) },
-            { label: 'Technical Debt', value: debtToStr(m.sqale_index) },
             { label: 'Debt Ratio', value: safePct(m.sqale_debt_ratio) },
           ]}
+          newCodeLabel="Maintainability on new code"
           newCodeRows={[
             { label: 'New Code Smells', value: fmtNumber(m.new_code_smells) },
             { label: 'Debt Ratio on New Code', value: safePct(m.new_sqale_debt_ratio) },

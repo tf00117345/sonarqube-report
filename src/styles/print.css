@@ -4,12 +4,13 @@
     margin: 0;
   }
 
-  html, body {
+  html,
+  body {
     width: 210mm;
-    height: 297mm;
     margin: 0;
     padding: 0;
     background: white;
+    /* Do NOT set a fixed height – it constrains the entire document to one page */
   }
 
   /* Hide UI controls */
@@ -20,19 +21,28 @@
   }
 
   .report-container {
+    width: 210mm;
     margin: 0;
+    padding: 0;
     box-shadow: none;
   }
 
   .report-page {
-    page-break-after: always;
-    page-break-inside: avoid;
-    min-height: 297mm;
+    width: 210mm;
+    height: 297mm;
+    padding: 12mm 15mm 18mm;
+    overflow: hidden;
+    position: relative;
     box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .report-page:last-child {
     page-break-after: auto;
+    break-after: auto;
   }
 
   /* Ensure trend charts print as SVG */
@@ -40,7 +50,20 @@
     overflow: visible !important;
   }
 
-  /* Issues table: repeat header on new pages */
+  /* Issues summary table: repeat header on new pages */
+  .issues-summary-table thead {
+    display: table-header-group;
+  }
+
+  .issues-summary-table tbody {
+    display: table-row-group;
+  }
+
+  .issues-summary-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* Issues table (legacy): repeat header on new pages */
   .issues-table thead {
     display: table-header-group;
   }
@@ -49,8 +72,17 @@
     display: table-row-group;
   }
 
-  /* Avoid breaking inside rows */
   .issues-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* Rule detail: avoid breaking inside file rows */
+  .rule-detail__file-row {
+    page-break-inside: avoid;
+  }
+
+  /* Rule info box: keep together */
+  .rule-info-box {
     page-break-inside: avoid;
   }
 }
